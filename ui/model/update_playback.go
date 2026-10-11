@@ -8,7 +8,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/bjarneo/cliamp/applog"
-	"github.com/bjarneo/cliamp/player"
 	"github.com/bjarneo/cliamp/playlist"
 )
 
@@ -140,7 +139,7 @@ func (m *Model) handleStreamPlayed(msg streamPlayedMsg) tea.Cmd {
 		m.err = msg.err
 		applog.Warn("play %q: %v", msg.path, msg.err)
 		// A local file is never gated, so m.err alone reports its failure.
-		if track, idx := m.currentPlaybackTrack(); idx >= 0 && !player.UsesLocalFFmpeg(msg.path) {
+		if track, idx := m.currentPlaybackTrack(); idx >= 0 && !plainLocalPath(msg.path) {
 			m.status.Errorf(statusTTLLong, "Couldn't play %s — track is gated, restricted, or unavailable.", track.DisplayName())
 		}
 	} else {

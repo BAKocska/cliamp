@@ -595,7 +595,7 @@ func TestYTDLUnpauseReconnectFollowsThePlayback(t *testing.T) {
 		{
 			name: "skip during the reconnect",
 			during: func(m *Model) {
-				m.skipNext()
+				settlePlay(nil, m, m.skipNext())
 				// A debounced seek waits on the new track.
 				m.seek.active = true
 				m.seek.timer = seekDebounceTicks
@@ -1406,8 +1406,10 @@ func TestFailedPreloadIsNotRetriedEveryTick(t *testing.T) {
 
 	t.Run("new track retries", func(t *testing.T) {
 		m, _ := failed(t)
-		updated, _ := m.Update(PluginQueueMsg{Op: "jump", Index: 0})
-		if !updated.(Model).preloading {
+		updated, cmd := m.Update(PluginQueueMsg{Op: "jump", Index: 0})
+		m = updated.(Model)
+		settlePlay(t, &m, cmd)
+		if !m.preloading {
 			t.Fatal("b.mp3 was not preloaded again after a new track started")
 		}
 	})
@@ -1599,7 +1601,7 @@ func TestNextTrackRulesAgree(t *testing.T) {
 
 			engine := &playbackFakeEngine{playing: true}
 			m = setup(engine)
-			m.nextTrack()
+			settlePlay(t, &m, m.nextTrack())
 			if got := strings.Join(engine.playCalls, ","); got != tt.want {
 				t.Errorf("nextTrack plays %q, want %q", got, tt.want)
 			}
