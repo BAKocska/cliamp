@@ -84,7 +84,7 @@ If `radio.m3u` is in `~/playlists/`, cliamp resolves `../Music/song.mp3` to `~/M
 
 ## Local TOML Playlists
 
-Create and manage playlists as `.toml` files in `~/.config/cliamp/playlists/`. The folder follows cliamp config directory resolution: `CLIAMP_CONFIG_DIR`, then `XDG_CONFIG_HOME/cliamp`, then `HOME/.config/cliamp`.
+Create and manage playlists as `.toml` files in `~/.config/cliamp/playlists/`. The folder follows the [config directory](configuration.md#config-directory) order.
 
 ### File Format
 
