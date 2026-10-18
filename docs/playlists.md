@@ -78,6 +78,7 @@ If `radio.m3u` is in `~/playlists/`, cliamp resolves `../Music/song.mp3` to `~/M
 - `\r\n` line endings
 - Missing `#EXTM3U` header
 - Mixed local and remote entries in the same file
+- `file://` entries, as VLC writes them, in local M3U files
 - Other `#` directives (silently skipped)
 
 ---

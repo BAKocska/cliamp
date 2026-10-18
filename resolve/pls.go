@@ -201,5 +201,10 @@ func resolveLocalPLS(path string) ([]playlist.Track, error) {
 	if err != nil {
 		return nil, err
 	}
+	for i, e := range entries {
+		if path, ok := fileURIPath(e.File); ok {
+			entries[i].File = path
+		}
+	}
 	return plsEntriesToTracks(entries), nil
 }

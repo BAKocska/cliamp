@@ -119,6 +119,29 @@ func TestParseM3UAbsolutePaths(t *testing.T) {
 	}
 }
 
+func TestParseM3UFileURIs(t *testing.T) {
+	input := `#EXTM3U
+#EXTINF:60,Song
+file:///home/user/My%20Music/song.mp3
+file://localhost/home/user/other.flac
+file:///C:/Music/track.mp3
+file:///home/user/Mixes/a%23b%3F%20#1?.mp3
+`
+	entries, err := parseM3U(strings.NewReader(input), "/home/user/playlists")
+	if err != nil {
+		t.Fatalf("parseM3U error: %v", err)
+	}
+	want := []string{"/home/user/My Music/song.mp3", "/home/user/other.flac", filepath.FromSlash("C:/Music/track.mp3"), "/home/user/Mixes/a#b? #1?.mp3"}
+	if len(entries) != len(want) {
+		t.Fatalf("got %d entries, want %d", len(entries), len(want))
+	}
+	for i, w := range want {
+		if entries[i].Path != w {
+			t.Errorf("entries[%d].Path = %q, want %q", i, entries[i].Path, w)
+		}
+	}
+}
+
 func TestParseM3UEmpty(t *testing.T) {
 	entries, err := parseM3U(strings.NewReader(""), "")
 	if err != nil {
