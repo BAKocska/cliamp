@@ -150,6 +150,29 @@ http://radio.example.com/stream
 	}
 }
 
+func TestParseEXTINF(t *testing.T) {
+	tests := []struct {
+		info  string
+		dur   int
+		title string
+	}{
+		{`123,Artist - Song`, 123, "Artist - Song"},
+		{`-1,Radio Station`, -1, "Radio Station"},
+		{`245.7,Decimal Duration`, 245, "Decimal Duration"},
+		{`-1 tvg-id="smooth" group-title="Jazz, Blues",Smooth FM`, -1, "Smooth FM"},
+		{`180 tvg-logo="http://x/a.png",Song, Part 2`, 180, "Song, Part 2"},
+		{`60 tvg-name="unclosed,Title`, 60, "Title"},
+		{`1e300,Huge`, -1, "Huge"},
+		{`no comma`, -1, ""},
+	}
+	for _, tt := range tests {
+		dur, title := parseEXTINF(tt.info)
+		if dur != tt.dur || title != tt.title {
+			t.Errorf("parseEXTINF(%q) = %d, %q, want %d, %q", tt.info, dur, title, tt.dur, tt.title)
+		}
+	}
+}
+
 func TestM3UEntryToTrackStream(t *testing.T) {
 	e := m3uEntry{
 		Path:     "http://radio.example.com/stream",

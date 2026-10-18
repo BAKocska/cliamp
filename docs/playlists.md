@@ -57,6 +57,13 @@ http://station-1.com/stream
 http://station-2.com/stream/hd
 ```
 
+Attributes between the duration and the title, as IPTV and radio lists write them, are skipped, and durations may have decimals:
+
+```m3u
+#EXTINF:-1 tvg-logo="https://example.com/logo.png" group-title="Jazz, Blues",Smooth FM
+http://example.com/smooth
+```
+
 Entries without `#EXTINF` also work. cliamp uses the file name or URL as the title.
 
 ### Relative Paths

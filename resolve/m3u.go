@@ -3,6 +3,7 @@ package resolve
 import (
 	"bufio"
 	"io"
+	"math"
 	"os"
 	pathpkg "path"
 	"path/filepath"
@@ -51,17 +52,9 @@ func parseM3U(r io.Reader, baseDir string) ([]m3uEntry, error) {
 			continue
 		}
 
-		// Parse #EXTINF:duration,title
+		// Parse #EXTINF:duration [key="value" ...],title
 		if after, ok := strings.CutPrefix(line, "#EXTINF:"); ok {
-			info := after
-			dur := -1
-			title := ""
-			if before, after, ok := strings.Cut(info, ","); ok {
-				if d, err := strconv.Atoi(strings.TrimSpace(before)); err == nil {
-					dur = d
-				}
-				title = strings.TrimSpace(after)
-			}
+			dur, title := parseEXTINF(after)
 			pending = &m3uEntry{Duration: dur, Title: title}
 			continue
 		}
@@ -87,6 +80,33 @@ func parseM3U(r io.Reader, baseDir string) ([]m3uEntry, error) {
 	}
 
 	return entries, scanner.Err()
+}
+
+// parseEXTINF splits the text after "#EXTINF:" into the duration in seconds
+// (-1 if unknown) and the title. The title starts after the first comma
+// outside quotes: IPTV and radio lists put attributes such as
+// group-title="Jazz, Blues" between the two. Durations may have decimals.
+func parseEXTINF(info string) (int, string) {
+	split := strings.IndexByte(info, ',')
+	inQuotes := false
+	for i := 0; i < len(info); i++ {
+		if info[i] == '"' {
+			inQuotes = !inQuotes
+		} else if info[i] == ',' && !inQuotes {
+			split = i
+			break
+		}
+	}
+	if split < 0 {
+		return -1, ""
+	}
+	dur := -1
+	if fields := strings.Fields(info[:split]); len(fields) > 0 {
+		if d, err := strconv.ParseFloat(fields[0], 64); err == nil && d >= -1 && d < math.MaxInt32 {
+			dur = int(d)
+		}
+	}
+	return dur, strings.TrimSpace(info[split+1:])
 }
 
 // m3uEntryToTrack converts a parsed M3U entry to a playlist.Track.
