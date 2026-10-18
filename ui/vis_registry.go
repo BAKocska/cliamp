@@ -39,6 +39,7 @@ const (
 	VisOmarchy                    // dithered pixel field with the Omarchy mark (omarchy.org style)
 	VisRedSector                  // tumbling wireframe equalizer over a drifting starfield
 	VisYinYang                    // two koi chasing round a lily pad, flicking their tails to the drums
+	VisEthereal                   // blue-violet nebula clouds and warm, twinkling starlight
 	VisNone                       // hidden — no visualizer
 	VisCount                      // sentinel for cycling
 )
@@ -85,6 +86,7 @@ var visModes = [VisCount]visEntry{
 	VisOmarchy:     {"Omarchy", newFastRenderOnlyDriver(spectrumAnalysisSpec(DefaultSpectrumBands), TickAnim, (*Visualizer).renderOmarchy)},
 	VisRedSector:   {"RedSector", newRedSectorDriver},
 	VisYinYang:     {"YinYang", newYinYangDriver},
+	VisEthereal:    {"Ethereal", newEtherealDriver},
 	VisNone:        {"None", newNoOpDriver},
 }
 
