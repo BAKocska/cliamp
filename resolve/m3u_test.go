@@ -162,6 +162,7 @@ func TestParseEXTINF(t *testing.T) {
 		{`-1 tvg-id="smooth" group-title="Jazz, Blues",Smooth FM`, -1, "Smooth FM"},
 		{`180 tvg-logo="http://x/a.png",Song, Part 2`, 180, "Song, Part 2"},
 		{`60 tvg-name="unclosed,Title`, 60, "Title"},
+		{`2147483647,Longest`, 2147483647, "Longest"},
 		{`1e300,Huge`, -1, "Huge"},
 		{`no comma`, -1, ""},
 	}

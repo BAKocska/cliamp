@@ -102,7 +102,7 @@ func parseEXTINF(info string) (int, string) {
 	}
 	dur := -1
 	if fields := strings.Fields(info[:split]); len(fields) > 0 {
-		if d, err := strconv.ParseFloat(fields[0], 64); err == nil && d >= -1 && d < math.MaxInt32 {
+		if d, err := strconv.ParseFloat(fields[0], 64); err == nil && d >= -1 && d <= math.MaxInt32 {
 			dur = int(d)
 		}
 	}
