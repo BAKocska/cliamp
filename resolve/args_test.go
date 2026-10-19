@@ -235,7 +235,11 @@ func TestArgsLocalPLSFileURI(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 	pls := filepath.Join(dir, "pl.pls")
-	uri := (&url.URL{Scheme: "file", Path: filepath.ToSlash(audio)}).String()
+	uriPath := filepath.ToSlash(audio)
+	if filepath.VolumeName(audio) != "" {
+		uriPath = "/" + uriPath
+	}
+	uri := (&url.URL{Scheme: "file", Path: uriPath}).String()
 	content := "[playlist]\nFile1=" + uri + "\nTitle1=Track 1\nNumberOfEntries=1\nVersion=2\n"
 	if err := os.WriteFile(pls, []byte(content), 0o644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
