@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -47,7 +48,8 @@ func ssrfGuard(network, address string, _ syscall.RawConn) error {
 // resolveAllowedPrivateAddrs reads [plugins] allowed_private_addresses =
 // "ip:port,ip:port". Only literal IPs with a port count: the guard sees resolved
 // addresses, and a host name could be pointed elsewhere. Entries that are not
-// ip:port are skipped and returned in invalid, so New can log them.
+// ip:port with a port from 1 to 65535 are skipped and returned in invalid, so New
+// can log them.
 func resolveAllowedPrivateAddrs(pluginCfg map[string]map[string]string) (allowed map[string]bool, invalid []string) {
 	raw := pluginCfg[""]["allowed_private_addresses"]
 	allowed = make(map[string]bool)
@@ -58,11 +60,13 @@ func resolveAllowedPrivateAddrs(pluginCfg map[string]map[string]string) (allowed
 		}
 		host, port, err := net.SplitHostPort(entry)
 		ip := net.ParseIP(host)
-		if err != nil || ip == nil || port == "" {
+		// the dialer reports ports in plain decimal, so "08085" must become "8085"
+		number, portErr := strconv.Atoi(port)
+		if err != nil || ip == nil || portErr != nil || number < 1 || number > 65535 {
 			invalid = append(invalid, entry)
 			continue
 		}
-		allowed[net.JoinHostPort(ip.String(), port)] = true
+		allowed[net.JoinHostPort(ip.String(), strconv.Itoa(number))] = true
 	}
 	return allowed, invalid
 }
