@@ -95,7 +95,7 @@ p:on("track.change", function(track)
 end)
 ```
 
-`os.execute` is not available in the sandbox. Use `cliamp.http` for public HTTP endpoints. cliamp blocks private, loopback, link-local, multicast, and unspecified addresses. For local automation, write to an allowed file for a watcher to read. You can also declare the permission-gated `exec` capability.
+`os.execute` is not available in the sandbox. Use `cliamp.http` for public HTTP endpoints. cliamp blocks private, loopback, link-local, multicast, and unspecified addresses, except an exact `ip:port` you allow for a self-hosted server (see [Allowing a self-hosted server](#allowing-a-self-hosted-server)). For local automation, write to an allowed file for a watcher to read. You can also declare the permission-gated `exec` capability.
 
 ### Webhook
 
@@ -637,6 +637,17 @@ Read it in Lua:
 local api_key = p:config("api_key")   --> "abc123" or nil
 ```
 
+### Allowing a self-hosted server
+
+A plugin that talks to a server on your machine or home network, such as a self-hosted gPodder or Jellyfin, is blocked like any non-public address. Allow that one server in `[plugins]`:
+
+```toml
+[plugins]
+allowed_private_addresses = ["127.0.0.1:8085", "192.168.1.20:8096"]
+```
+
+Each entry is a literal IP address and a port, with IPv6 in brackets such as `[::1]:8085`. cliamp checks the address every connection resolves to, so a host name is not accepted: DNS could point it elsewhere. Every plugin may then connect to these addresses, so list only servers you trust plugins with. An entry that is not `ip:port` is ignored, with a warning in `plugins.log`.
+
 ### Disabling plugins
 
 Disable one plugin:
@@ -653,7 +664,7 @@ To disable several plugins:
 disabled = webhook, discord-rpc
 ```
 
-A list in square brackets also works, such as `disabled = ["webhook", "discord-rpc"]`. `allowed_binaries` accepts the same forms. `enabled` accepts every bool form in [Value syntax](configuration.md#value-syntax), such as `False`.
+A list in square brackets also works, such as `disabled = ["webhook", "discord-rpc"]`. `allowed_binaries` and `allowed_private_addresses` accept the same forms. `enabled` accepts every bool form in [Value syntax](configuration.md#value-syntax), such as `False`.
 
 ## Visualizer plugins
 
@@ -752,7 +763,7 @@ Writing outside these directories, or to a read-only path, raises a Lua error. c
 - Each plugin has its own Lua VM. A plugin cannot reach the Lua variables of another plugin.
 - The sandbox does not keep secrets from a plugin. `cliamp.fs` reads each file that you can read. Examples are `config.toml`, with the `[plugins.<name>]` keys of every plugin, and the `cliamp.store` file of another plugin. `os.getenv()` reads the environment. Install only plugins that you trust with these values.
 - A plugin crash does not affect other plugins or the player.
-- Use `cliamp.http` for public network access. Raw socket access is not available. cliamp blocks private, loopback, link-local, multicast, and unspecified destinations after DNS resolution and through redirects.
+- Use `cliamp.http` for public network access. Raw socket access is not available. cliamp blocks private, loopback, link-local, multicast, and unspecified destinations after DNS resolution and through redirects. Only an exact `ip:port` from `allowed_private_addresses` gets through.
 - `os.execute` is not available. Permission-gated `cliamp.exec` can start only configured allowed binaries.
 
 ## Debugging
