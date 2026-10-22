@@ -212,7 +212,7 @@ const maxImageBytes = 32 << 20
 // readFile reads a regular file up to maxImageBytes. Devices such as /dev/zero
 // are rejected: reading them never ends.
 func readFile(path string) ([]byte, error) {
-	file, err := os.Open(path)
+	file, err := openImage(path)
 	if err != nil {
 		return nil, err
 	}
