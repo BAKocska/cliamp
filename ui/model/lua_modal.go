@@ -82,8 +82,10 @@ func (m Model) renderLuaSelect() string {
 	// The list can be longer than the screen (the visualizer picker lists every
 	// mode). Show a window around the cursor so the selected option is always
 	// visible, with markers when there is more above or below.
+	// Title, blank line, options, up to two "more" indicators, blank line,
+	// footer and the box borders: keep the whole box inside the terminal.
 	visible := len(sel.options)
-	if maxRows := max(3, m.height-9); visible > maxRows {
+	if maxRows := max(1, m.height-8); visible > maxRows {
 		visible = maxRows
 	}
 	start := 0

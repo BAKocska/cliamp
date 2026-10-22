@@ -16,6 +16,7 @@ import (
 	_ "image/gif"
 	_ "image/jpeg"
 	"image/png"
+	"io"
 	"os"
 	"strings"
 	"sync"
@@ -211,7 +212,13 @@ const maxImageBytes = 32 << 20
 // readFile reads a regular file up to maxImageBytes. Devices such as /dev/zero
 // are rejected: reading them never ends.
 func readFile(path string) ([]byte, error) {
-	info, err := os.Stat(path)
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	info, err := file.Stat()
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +228,9 @@ func readFile(path string) ([]byte, error) {
 	if info.Size() > maxImageBytes {
 		return nil, fmt.Errorf("kittyimg: %s is larger than %d bytes", path, maxImageBytes)
 	}
-	data, err := os.ReadFile(path)
+	// Read from the open descriptor with a hard cap: the file cannot be swapped
+	// for a device between the check and the read.
+	data, err := io.ReadAll(io.LimitReader(file, maxImageBytes+1))
 	if err != nil {
 		return nil, err
 	}
