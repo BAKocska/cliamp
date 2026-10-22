@@ -40,6 +40,7 @@ func (m *Model) notifyPlaybackChange() {
 		return
 	}
 	track, state := m.playbackState()
+	m.artRef.set(state.Track.ArtURL)
 	key := state
 	key.Position = key.Position.Truncate(time.Second)
 	if m.notice.sent && key == m.notice.state {
@@ -51,6 +52,9 @@ func (m *Model) notifyPlaybackChange() {
 	}
 	if hook {
 		data := trackEventData(track, state.Track.Duration)
+		// state.Track.ArtURL is the cover the provider resolved for this track,
+		// which is not on the playlist row when the provider reads it on demand.
+		data["album_art_url"] = state.Track.ArtURL
 		data["status"] = m.playerStatus()
 		data["title"] = state.Track.Title
 		data["artist"] = state.Track.Artist
@@ -169,6 +173,7 @@ func pluginTrack(track playlist.Track) luaplugin.Track {
 		Year:     track.Year,
 		Number:   track.TrackNumber,
 		Duration: track.DurationSecs,
+		ArtURL:   track.AlbumArtURL,
 		Stream:   track.Stream,
 	}
 }
@@ -185,7 +190,10 @@ func (m *Model) stopByUser() {
 func (m *Model) nowPlaying(track playlist.Track) {
 	m.playingTrackStarted = true
 	if m.luaMgr != nil && m.luaMgr.HasHook(luaplugin.EventTrackChange) {
-		m.emitPlugin(luaplugin.EventTrackChange, trackEventData(track, m.player.Duration()))
+		data := trackEventData(track, m.player.Duration())
+		// The cover is resolved on demand, so the playlist row may not carry it.
+		data["album_art_url"] = m.artworkURL(track)
+		m.emitPlugin(luaplugin.EventTrackChange, data)
 	}
 
 	reporter := m.findPlaybackReporter(track)

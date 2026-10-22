@@ -88,6 +88,44 @@ func (v *Visualizer) Render() string {
 	return fitVisualizerFrame(driver.Render(v), cols, v.Rows)
 }
 
+// WaveSamples returns the raw samples of the last analysis, which the wave,
+// scope and heartbeat modes draw.
+func (v *Visualizer) WaveSamples() []float64 {
+	if v == nil {
+		return nil
+	}
+	return v.waveBuf
+}
+
+// SetWaveSamples copies the raw samples of another visualizer so a pane that
+// draws a waveform has data without running its own analysis.
+func (v *Visualizer) SetWaveSamples(samples []float64) {
+	if v == nil {
+		return
+	}
+	if len(samples) == 0 {
+		v.waveBuf = v.waveBuf[:0]
+		return
+	}
+	if cap(v.waveBuf) < len(samples) {
+		v.waveBuf = make([]float64, len(samples))
+	}
+	v.waveBuf = v.waveBuf[:len(samples)]
+	copy(v.waveBuf, samples)
+}
+
+// SetBands injects the spectrum of another visualizer, so several panes share
+// one FFT analysis instead of running it once per pane.
+func (v *Visualizer) SetBands(bands []float64) {
+	if v == nil {
+		return
+	}
+	if len(v.bands) != len(bands) {
+		v.bands = make([]float64, len(bands))
+	}
+	copy(v.bands, bands)
+}
+
 func (v *Visualizer) RequestRefresh() {
 	if v != nil {
 		v.refreshPending = true

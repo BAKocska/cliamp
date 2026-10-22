@@ -136,5 +136,11 @@ func luaUIProvider(send func(tea.Msg)) luaplugin.UIProvider {
 		ShowMessage: func(text string, duration time.Duration) {
 			send(model.ShowStatusMsg{Text: text, Duration: duration})
 		},
+		ShowSelect: func(title string, options []string, cursor int, onDone func(index int), onCancel func()) {
+			send(model.LuaSelectMsg{Title: title, Options: options, Cursor: cursor, OnDone: onDone, OnCancel: onCancel})
+		},
+		SetVis: func(name string) {
+			send(model.SetVisMsg{Name: name})
+		},
 	}
 }

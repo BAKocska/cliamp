@@ -94,6 +94,40 @@ const (
 // EQ curve, or shuffle without repeat, would read as a rendering bug rather
 // than a compromise, so the pane can end up a row shorter than it was given.
 func (m Model) renderSettingsPane(rows int) string {
+	panes := m.regionPanes(ui.RegionSettings)
+	if len(panes) == 1 && panes[0].Pane == ui.PaneBuiltin {
+		// Same shortcut rule as the visualizer band: a lone plugin pane is not
+		// the settings column.
+		return m.renderSettingsBuiltin(rows)
+	}
+	heights := ui.SplitWeights(rows, paneWeights(panes))
+	var out []string
+	for i, pane := range panes {
+		block := ""
+		switch {
+		case pane.Vis != "":
+			// A pane can show any visualizer, in either region. In a narrow
+			// column the frame is tall instead of wide, so the built-in modes
+			// that assume a band look cramped, but they render.
+			block = m.renderPaneVis(pane.Vis, heights[i], m.layout.settingsWidth)
+		case pane.Pane == ui.PaneBuiltin:
+			block = m.renderSettingsBuiltin(heights[i])
+		default:
+			block = m.renderPluginPane(pane.Pane, heights[i], m.layout.settingsWidth)
+		}
+		lines := strings.Split(block, "\n")
+		for row := 0; row < heights[i]; row++ {
+			if row < len(lines) {
+				out = append(out, lines[row])
+			} else {
+				out = append(out, "")
+			}
+		}
+	}
+	return strings.Join(out, "\n")
+}
+
+func (m Model) renderSettingsBuiltin(rows int) string {
 	metadataRows := m.metadataPaneRows(rows)
 	pane := m.settingsPaneRows(rows - metadataRows)
 	lines := make([]string, 0, len(pane))

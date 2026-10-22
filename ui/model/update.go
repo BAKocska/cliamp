@@ -80,6 +80,26 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case SetVisMsg:
+		if msg.Name != "" {
+			m.SetVisualizer(msg.Name)
+		}
+		return m, nil
+
+	case LuaSelectMsg:
+		cursor := msg.Cursor - 1
+		if cursor < 0 || cursor >= len(msg.Options) {
+			cursor = 0
+		}
+		m.luaSelect = &luaSelectState{
+			title:    msg.Title,
+			options:  msg.Options,
+			cursor:   cursor,
+			onDone:   msg.OnDone,
+			onCancel: msg.OnCancel,
+		}
+		return m, nil
+
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
