@@ -96,6 +96,31 @@ func (m *Model) playbackState() (playlist.Track, playback.State) {
 	}
 }
 
+// artworkURL resolves the cover of the current track. Providers that keep the
+// art inside the audio file expose it on demand, so the image can appear
+// without blocking the track list.
+//
+// The track can outlive a provider switch: the tracks queued from the previous
+// provider keep playing while m.provider points at the new one. Ask the
+// provider that owns the track, and fall back to the active one.
+func (m *Model) artworkURL(track playlist.Track) string {
+	prov := m.provider
+	if name := m.playingProvider; name != "" && (prov == nil || prov.Name() != name) {
+		for _, entry := range m.providers {
+			if entry.Name == name {
+				prov = entry.Provider
+				break
+			}
+		}
+	}
+	if artwork, ok := prov.(provider.ArtworkProvider); ok {
+		if url, found := artwork.ArtworkFor(track); found {
+			return url
+		}
+	}
+	return track.AlbumArtURL
+}
+
 // playerStatus returns the player state that Lua plugins see: "playing",
 // "paused" or "stopped".
 func (m *Model) playerStatus() string {

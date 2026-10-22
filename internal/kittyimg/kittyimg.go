@@ -15,10 +15,13 @@ import (
 	"image/color"
 	_ "image/gif"
 	_ "image/jpeg"
-	_ "image/png"
+	"image/png"
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
+
+	"github.com/bjarneo/cliamp/applog"
 )
 
 // placeholder is the private-use character kitty composites the image behind.
@@ -40,6 +43,7 @@ var (
 	placed = map[int]Placement{}
 	lastID = 1000
 
+	pulse   atomic.Bool
 	ttyOnce sync.Once
 	ttyFile *os.File
 	ttyErr  error
@@ -80,16 +84,20 @@ func Show(source string, cols, rows int, reuseID int) (Placement, error) {
 	go func() {
 		raw, err := load(source)
 		if err != nil {
+			applog.Warn("kittyimg: load: %v", err)
 			return
 		}
 		img, _, err := image.Decode(bytes.NewReader(raw))
 		if err != nil {
+			applog.Warn("kittyimg: decode: %v", err)
 			return
 		}
 		// The terminal fits the image to the cell rectangle and keeps its
 		// aspect, so the pixel size only has to match the rectangle's shape.
 		scaled := scale(img, cols*8, rows*16)
-		_ = transmit(id, scaled, cols, rows)
+		if err := transmit(id, scaled, cols, rows); err != nil {
+			applog.Warn("kittyimg: transmit: %v", err)
+		}
 	}()
 
 	return placement, nil
@@ -101,6 +109,7 @@ func (p Placement) Block() string {
 	if p.ID == 0 || p.Cols <= 0 || p.Rows <= 0 {
 		return ""
 	}
+	pulse.Store(!pulse.Load())
 	color := fmt.Sprintf("\x1b[38;2;%d;%d;%dm", (p.ID>>16)&0xff, (p.ID>>8)&0xff, p.ID&0xff)
 	var b strings.Builder
 	for row := 0; row < p.Rows; row++ {
@@ -109,6 +118,16 @@ func (p Placement) Block() string {
 			b.WriteRune(placeholder)
 			b.WriteRune(diacritic(row))
 			b.WriteRune(diacritic(col))
+		}
+		// The renderer redraws only the lines whose bytes changed. A placeholder
+		// block is static, so without a change the terminal never re-emits the
+		// cells and kitty drops the placement: the image disappears until some
+		// other update repaints that line. Alternating an invisible reset changes
+		// the bytes without changing the drawing and keeps the image alive.
+		if pulse.Load() {
+			b.WriteString("\x1b[0m")
+		} else {
+			b.WriteString("\x1b[0;0m")
 		}
 		if row < p.Rows-1 {
 			b.WriteByte('\n')
@@ -203,18 +222,16 @@ func scale(src image.Image, w, h int) *image.NRGBA {
 	return dst
 }
 
-// transmit writes the image to the terminal in 4096-byte base64 chunks, with a
-// virtual placement of cols x rows cells.
+// transmit writes the image to the terminal as PNG in 4096-byte base64
+// chunks, with a virtual placement of cols x rows cells. PNG is the format the
+// protocol expects for f=100 and avoids the raw-pixel layout that some kitty
+// versions composite incorrectly.
 func transmit(id int, img *image.NRGBA, cols, rows int) error {
-	w, h := img.Bounds().Dx(), img.Bounds().Dy()
-	rgba := make([]byte, 0, w*h*4)
-	for y := range h {
-		for x := range w {
-			c := img.NRGBAAt(x, y)
-			rgba = append(rgba, c.R, c.G, c.B, c.A)
-		}
+	var encoded bytes.Buffer
+	if err := png.Encode(&encoded, img); err != nil {
+		return err
 	}
-	payload := base64.StdEncoding.EncodeToString(rgba)
+	payload := base64.StdEncoding.EncodeToString(encoded.Bytes())
 	const chunk = 4096
 	first := true
 	for len(payload) > 0 {
@@ -227,7 +244,7 @@ func transmit(id int, img *image.NRGBA, cols, rows int) error {
 		}
 		var seq string
 		if first {
-			seq = fmt.Sprintf("\x1b_Ga=T,f=32,s=%d,v=%d,i=%d,U=1,c=%d,r=%d,q=2,m=%d;%s\x1b\\", w, h, id, cols, rows, more, part)
+			seq = fmt.Sprintf("\x1b_Ga=T,f=100,i=%d,U=1,c=%d,r=%d,q=2,m=%d;%s\x1b\\", id, cols, rows, more, part)
 			first = false
 		} else {
 			seq = fmt.Sprintf("\x1b_Gm=%d;%s\x1b\\", more, part)

@@ -62,6 +62,29 @@ func registerImageAPI(L *lua.LState, cliamp *lua.LTable, p *Plugin) {
 		return 1
 	}))
 
+	// cliamp.image.blocks(source, {cols=n, rows=n}) -> text, err
+	L.SetField(tbl, "blocks", L.NewFunction(func(L *lua.LState) int {
+		if !guard("blocks") {
+			return pushErr(L, "image permission required")
+		}
+		source := strings.TrimSpace(L.CheckString(1))
+		opts := L.OptTable(2, nil)
+		cols, rows := 0, 0
+		if opts != nil {
+			cols = optIntField(L, opts, "cols")
+			rows = optIntField(L, opts, "rows")
+		}
+		if cols <= 0 || rows <= 0 {
+			return pushErr(L, "cliamp.image.blocks: cols and rows are required")
+		}
+		text, err := kittyimg.Blocks(source, cols, rows)
+		if err != nil {
+			return pushErr(L, err.Error())
+		}
+		L.Push(lua.LString(text))
+		return 1
+	}))
+
 	L.SetField(cliamp, "image", tbl)
 }
 

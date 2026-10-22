@@ -143,7 +143,10 @@ func (m Model) renderPluginPane(name string, rows, cols int) string {
 	var values [10]float64
 	copy(values[:], bands)
 	text := m.luaMgr.RenderVis(name, values, rows, cols, m.vis.Frame())
-	if m.paneCache != nil {
+	// A block with image placeholders must reach the renderer every frame: the
+	// API alternates an invisible reset so the line counts as changed, and the
+	// cache would swallow that and leave the image stale.
+	if m.paneCache != nil && !strings.Contains(text, "\U0010EEEE") {
 		m.paneCache.set(key, text)
 	}
 	return text
