@@ -1101,6 +1101,7 @@ func TestLoadPluginKeysThatCliampReads(t *testing.T) {
 		{"disabled without brackets", "[plugins]\ndisabled = webhook, discord-rpc\n", "", "disabled", "webhook, discord-rpc"},
 		{"disabled as a quoted string", "[plugins]\ndisabled = \"webhook, x\" # two\n", "", "disabled", "webhook, x"},
 		{"allowed_binaries in square brackets", "[plugins]\nallowed_binaries = [\"ffprobe\", \"curl\"]\n", "", "allowed_binaries", "ffprobe,curl"},
+		{"allowed_private_addresses in square brackets", "[plugins]\nallowed_private_addresses = [\"127.0.0.1:8085\", \"[::1]:9000\"]\n", "", "allowed_private_addresses", "127.0.0.1:8085,[::1]:9000"},
 		{"other plugin key keeps the brackets", "[plugins.lastfm]\ntags = [\"a\", \"b\"]\n", "lastfm", "tags", `["a", "b"]`},
 		{"disabled in a plugin section stays a string", "[plugins.lastfm]\ndisabled = [\"a\"]\n", "lastfm", "disabled", `["a"]`},
 	}

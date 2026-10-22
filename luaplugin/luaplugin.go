@@ -186,6 +186,8 @@ type Manager struct {
 func New(pluginCfg map[string]map[string]string, publisher EventPublisher, reservedKeys map[string]bool) (*Manager, error) {
 	m := newManager(resolveAllowedBinaries(pluginCfg), publisher)
 	m.reservedKeys = reservedKeys
+	privateAddrs, invalidAddrs := resolveAllowedPrivateAddrs(pluginCfg)
+	allowedPrivateAddrs.Store(&privateAddrs)
 
 	dir, err := appdir.PluginDir()
 	if err != nil {
@@ -195,6 +197,9 @@ func New(pluginCfg map[string]map[string]string, publisher EventPublisher, reser
 	// Initialize plugin logger.
 	logDir, _ := appdir.Dir()
 	m.logger = newPluginLogger(filepath.Join(logDir, pluginLogName))
+	for _, entry := range invalidAddrs {
+		m.logger.log("cliamp", "warn", "allowed_private_addresses: %q is not ip:port, ignored", entry)
+	}
 
 	files, err := Discover(dir)
 	if err != nil {

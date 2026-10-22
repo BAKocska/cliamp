@@ -977,9 +977,9 @@ func pluginSection(section string) (string, bool) {
 
 // pluginValue reads a value of the [plugins] section, or of the
 // [plugins.<name>] section when plugin is not empty. Plugins get each value
-// as a string. cliamp reads three keys itself, so these follow the value
-// rules: enabled of a plugin is a bool, and disabled and allowed_binaries of
-// [plugins] are lists. Load stores the bool as true or false, and a list in
+// as a string. cliamp reads four keys itself, so these follow the value
+// rules: enabled of a plugin is a bool, and disabled, allowed_binaries and
+// allowed_private_addresses of [plugins] are lists. Load stores the bool as true or false, and a list in
 // square brackets as names that commas separate.
 func pluginValue(plugin, key, val string) string {
 	switch {
@@ -987,7 +987,7 @@ func pluginValue(plugin, key, val string) string {
 		if v, ok := parseBool(val); ok {
 			return strconv.FormatBool(v)
 		}
-	case plugin == "" && (key == "disabled" || key == "allowed_binaries"):
+	case plugin == "" && (key == "disabled" || key == "allowed_binaries" || key == "allowed_private_addresses"):
 		if strings.HasPrefix(val, "[") {
 			return strings.Join(parseStringSlice(val), ",")
 		}

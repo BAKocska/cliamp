@@ -7,18 +7,27 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
 	lua "github.com/yuin/gopher-lua"
 )
 
+// allowedPrivateAddrs holds the non-public IP:port pairs that ssrfGuard lets
+// through, from [plugins] allowed_private_addresses in config.toml: a
+// self-hosted server on the machine or the home network. New sets it before
+// any plugin runs.
+var allowedPrivateAddrs atomic.Pointer[map[string]bool]
+
 // ssrfGuard rejects connections to non-public addresses. It runs as the
 // dialer's Control hook, so it sees the resolved IP for every connection
-// attempt, including ones reached via HTTP redirects or DNS rebinding.
+// attempt, including ones reached via HTTP redirects or DNS rebinding. An
+// exact IP:port from allowedPrivateAddrs is let through; nothing wider is.
 func ssrfGuard(network, address string, _ syscall.RawConn) error {
-	host, _, err := net.SplitHostPort(address)
+	host, port, err := net.SplitHostPort(address)
 	if err != nil {
 		return err
 	}
@@ -28,9 +37,38 @@ func ssrfGuard(network, address string, _ syscall.RawConn) error {
 	}
 	if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() ||
 		ip.IsLinkLocalMulticast() || ip.IsMulticast() || ip.IsUnspecified() {
+		if allowed := allowedPrivateAddrs.Load(); allowed != nil && (*allowed)[net.JoinHostPort(ip.String(), port)] {
+			return nil
+		}
 		return fmt.Errorf("blocked request to non-public address %s", ip)
 	}
 	return nil
+}
+
+// resolveAllowedPrivateAddrs reads [plugins] allowed_private_addresses =
+// "ip:port,ip:port". Only literal IPs with a port count: the guard sees resolved
+// addresses, and a host name could be pointed elsewhere. Entries that are not
+// ip:port with a port from 1 to 65535 are skipped and returned in invalid, so New
+// can log them.
+func resolveAllowedPrivateAddrs(pluginCfg map[string]map[string]string) (allowed map[string]bool, invalid []string) {
+	raw := pluginCfg[""]["allowed_private_addresses"]
+	allowed = make(map[string]bool)
+	for _, entry := range strings.Split(raw, ",") {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		host, port, err := net.SplitHostPort(entry)
+		ip := net.ParseIP(host)
+		// the dialer reports ports in plain decimal, so "08085" must become "8085"
+		number, portErr := strconv.Atoi(port)
+		if err != nil || ip == nil || portErr != nil || number < 1 || number > 65535 {
+			invalid = append(invalid, entry)
+			continue
+		}
+		allowed[net.JoinHostPort(ip.String(), strconv.Itoa(number))] = true
+	}
+	return allowed, invalid
 }
 
 var httpClient = &http.Client{
