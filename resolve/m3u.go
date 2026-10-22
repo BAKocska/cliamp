@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"io"
 	"math"
+	"net/url"
 	"os"
 	pathpkg "path"
 	"path/filepath"
@@ -167,6 +168,9 @@ func resolveM3UPath(baseDir, entry string) string {
 	if entry == "" || playlist.IsURL(entry) {
 		return entry
 	}
+	if path, ok := fileURIPath(entry); ok {
+		return path
+	}
 	if isWindowsAbsolutePath(entry) {
 		return filepath.Clean(entry)
 	}
@@ -180,6 +184,31 @@ func resolveM3UPath(baseDir, entry string) string {
 		return filepath.Join(baseDir, filepath.FromSlash(entry))
 	}
 	return pathpkg.Join(baseDir, entry)
+}
+
+// fileURIPath returns the local path of a file:// entry, the form VLC and
+// other players write for tracks outside the playlist's folder. It decodes
+// the path by hand: url.Parse would cut a file name at an unescaped # or ?.
+func fileURIPath(entry string) (string, bool) {
+	if URIScheme(entry) != "file" || !strings.HasPrefix(entry[len("file:"):], "//") {
+		return "", false
+	}
+	rest := entry[len("file://"):]
+	slash := strings.IndexByte(rest, '/')
+	if slash < 0 {
+		return "", false
+	}
+	if host := rest[:slash]; host != "" && !strings.EqualFold(host, "localhost") {
+		return "", false
+	}
+	path, err := url.PathUnescape(rest[slash:])
+	if err != nil {
+		return "", false
+	}
+	if hasWindowsDrivePrefix(path[1:]) {
+		path = filepath.FromSlash(path[1:])
+	}
+	return path, true
 }
 
 func usesWindowsPathSemantics(base string) bool {
