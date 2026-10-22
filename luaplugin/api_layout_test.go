@@ -12,7 +12,6 @@ type fakeLayout struct {
 	added   []ui.PaneSpec
 	removed []string
 	weights map[string]int
-	vis     map[string]string
 	builtin map[string]bool
 }
 
