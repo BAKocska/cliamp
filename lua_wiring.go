@@ -131,10 +131,26 @@ func newOrderedSender(send func(tea.Msg)) (queue func(tea.Msg), stop func()) {
 }
 
 // luaUIProvider lets Lua plugins show a status message.
-func luaUIProvider(send func(tea.Msg)) luaplugin.UIProvider {
+func luaUIProvider(send func(tea.Msg), headless bool) luaplugin.UIProvider {
 	return luaplugin.UIProvider{
 		ShowMessage: func(text string, duration time.Duration) {
 			send(model.ShowStatusMsg{Text: text, Duration: duration})
 		},
+		ShowSelect: showSelectFor(send, headless),
+		SetVis: func(name string) {
+			send(model.SetVisMsg{Name: name})
+		},
+	}
+}
+
+// showSelectFor returns nil in headless mode: there is no UI to answer a
+// selector, and the API reports it as unavailable instead of accepting a
+// request nobody can complete.
+func showSelectFor(send func(tea.Msg), headless bool) func(string, []string, int, func(int), func()) {
+	if headless {
+		return nil
+	}
+	return func(title string, options []string, cursor int, onDone func(index int), onCancel func()) {
+		send(model.LuaSelectMsg{Title: title, Options: options, Cursor: cursor, OnDone: onDone, OnCancel: onCancel})
 	}
 }

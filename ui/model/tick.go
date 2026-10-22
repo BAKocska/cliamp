@@ -263,7 +263,11 @@ func (m *Model) tickVisualizer(now time.Time) {
 		m.vis.Suspend()
 		return
 	}
-	m.vis.Tick(m.visualizerTickContext(now))
+	ctx := m.visualizerTickContext(now)
+	m.vis.Tick(ctx)
+	if m.slotVis != nil {
+		m.slotVis.tickAll(ctx, m.vis.WaveSamples())
+	}
 }
 
 func (m Model) refreshVisualizerIfPending() {

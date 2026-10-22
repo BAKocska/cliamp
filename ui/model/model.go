@@ -311,6 +311,12 @@ const (
 
 // Model is the Bubbletea model for the CLIAMP TUI.
 type Model struct {
+	// panes is the runtime layout plugins add panes to. Nil means builtin only.
+	panes              *ui.PaneSet
+	paneCache          *paneCache
+	luaSelect          *luaSelectState
+	artRef             *artRef
+	slotVis            *slotVisualizers
 	downloadsDirectory string
 	// audioDevice names the output device that the last device switch or
 	// list reported. The runtime snapshot shows it.

@@ -85,6 +85,9 @@ type Track struct {
 	Duration int // seconds
 	Stream   bool
 	Live     bool // live stream with no track boundary
+	// ArtURL is the cover of the track: a file:// URL, a data: URL, or empty
+	// when the provider resolves it on demand and has not done so yet.
+	ArtURL string
 }
 
 // QueueEntry is one track in the playlist as exposed to plugins via
@@ -126,6 +129,13 @@ type ControlProvider struct {
 // the ControlProvider funcs, ShowMessage must return at once.
 type UIProvider struct {
 	ShowMessage func(text string, duration time.Duration)
+	// ShowSelect opens a selector with options and calls onDone with the chosen
+	// index, or -1 when the user cancels. It must return at once; onDone runs on
+	// the UI goroutine and the manager turns it into a plugin callback.
+	ShowSelect func(title string, options []string, cursor int, onDone func(index int), onCancel func())
+	// SetVis switches the active visualizer by name. It must return at once: the
+	// UI applies the change on its own goroutine.
+	SetVis func(name string)
 }
 
 // EventPublisher accepts namespaced JSON events emitted by Lua plugins.
@@ -136,32 +146,33 @@ type EventPublisher interface {
 
 // Manager owns all loaded plugins and dispatches events to them.
 type Manager struct {
-	plugins      []*Plugin
-	hooks        map[string][]*luaHook           // event name -> handlers
-	keyBinds     map[string][]*luaHook           // key string -> handlers (global, non-overlay)
-	keyBindDescs map[string]KeyBinding           // key string -> UI overlay entry (only for binds that supplied a description)
-	reservedKeys map[string]bool                 // core-reserved keys; plugins may not bind these
-	commands     map[string]map[string]*luaHook  // plugin name -> command name -> handler
-	visPlugs     []*luaVis                       // Lua visualizers in registration order
-	visMap       map[string]*luaVis              // name -> Lua visualizer
-	namespaces   map[string]string               // event namespace -> owning plugin name
-	names        map[string]*Plugin              // display name -> plugin that registered it
-	state        atomic.Pointer[StateProvider]   // see SetStateProvider
-	control      atomic.Pointer[ControlProvider] // see SetControlProvider
-	ui           atomic.Pointer[UIProvider]      // see SetUIProvider
-	publisher    EventPublisher
-	timers       *timerManager
-	execs        *execManager
-	logger       *pluginLogger
-	mu           sync.RWMutex
-	closing      bool                    // set under mu.Lock during Close; blocks new async dispatch
-	queues       sync.WaitGroup          // tracks the queue worker of each loaded plugin
-	dropQueued   atomic.Bool             // set when closeDrainBudget ends; see runQueue
-	wg           sync.WaitGroup          // tracks in-flight EmitCommand goroutines
-	ctx          context.Context         // parent of each call context; see Close
-	cancel       context.CancelCauseFunc // cancels ctx with errClosed
-	cmdCtx       context.Context         // parent of each command call; a child of ctx
-	cmdCancel    context.CancelCauseFunc // cancels cmdCtx with errClosed
+	plugins        []*Plugin
+	hooks          map[string][]*luaHook          // event name -> handlers
+	keyBinds       map[string][]*luaHook          // key string -> handlers (global, non-overlay)
+	keyBindDescs   map[string]KeyBinding          // key string -> UI overlay entry (only for binds that supplied a description)
+	reservedKeys   map[string]bool                // core-reserved keys; plugins may not bind these
+	commands       map[string]map[string]*luaHook // plugin name -> command name -> handler
+	visPlugs       []*luaVis                      // Lua visualizers in registration order
+	visMap         map[string]*luaVis             // name -> Lua visualizer
+	namespaces     map[string]string              // event namespace -> owning plugin name
+	layoutProvider LayoutProvider
+	names          map[string]*Plugin              // display name -> plugin that registered it
+	state          atomic.Pointer[StateProvider]   // see SetStateProvider
+	control        atomic.Pointer[ControlProvider] // see SetControlProvider
+	ui             atomic.Pointer[UIProvider]      // see SetUIProvider
+	publisher      EventPublisher
+	timers         *timerManager
+	execs          *execManager
+	logger         *pluginLogger
+	mu             sync.RWMutex
+	closing        bool                    // set under mu.Lock during Close; blocks new async dispatch
+	queues         sync.WaitGroup          // tracks the queue worker of each loaded plugin
+	dropQueued     atomic.Bool             // set when closeDrainBudget ends; see runQueue
+	wg             sync.WaitGroup          // tracks in-flight EmitCommand goroutines
+	ctx            context.Context         // parent of each call context; see Close
+	cancel         context.CancelCauseFunc // cancels ctx with errClosed
+	cmdCtx         context.Context         // parent of each command call; a child of ctx
+	cmdCancel      context.CancelCauseFunc // cancels cmdCtx with errClosed
 }
 
 // New scans the plugin directory and loads all .lua files.
@@ -516,6 +527,9 @@ func (m *Manager) registerCliampAPI(L *lua.LState, p *Plugin) {
 	registerStoreAPI(L, cliamp, p.installName)
 	registerCryptoAPI(L, cliamp)
 	registerFSAPI(L, cliamp)
+	registerImageAPI(L, cliamp, p)
+	registerLayoutAPI(L, cliamp, p, m)
+	registerUIAPI(L, cliamp, p, m)
 	registerHTTPAPI(L, cliamp)
 	loadState, loadCtrl := loadProvider(&m.state), loadProvider(&m.control)
 	registerPlayerAPI(L, cliamp, loadState)

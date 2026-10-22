@@ -73,6 +73,8 @@ func (m *Model) publishPluginState() {
 		revision: m.playlist.Revision(),
 	}
 	state.Track.Artist, state.Track.Title = m.resolveTrackDisplay(track)
+	// Providers resolve the cover on demand, so the playlist row may not have it.
+	state.Track.ArtURL = m.artworkURL(track)
 	state.Track.Live = m.currentPlaybackIsLive(track)
 	if prev := m.pluginState.Load(); prev != nil && prev.revision == state.revision {
 		state.Queue = prev.Queue

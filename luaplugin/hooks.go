@@ -45,6 +45,9 @@ const (
 const (
 	PermControl = "control"
 	PermExec    = "exec"
+	PermImage   = "image"
+	PermLayout  = "layout"
+	PermUI      = "ui"
 	PermKeymap  = "keymap"
 )
 

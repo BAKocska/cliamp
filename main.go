@@ -32,6 +32,7 @@ import (
 	"github.com/bjarneo/cliamp/playlist"
 	"github.com/bjarneo/cliamp/resolve"
 	"github.com/bjarneo/cliamp/theme"
+	"github.com/bjarneo/cliamp/ui"
 	"github.com/bjarneo/cliamp/ui/model"
 )
 
@@ -169,6 +170,11 @@ func run(overrides config.Overrides, positional []string, headless, visualizer60
 	}
 
 	m := model.New(p, pl, providers.entries, defaultProvider, providers.localPlaylists(), providers.favorites, providers.history, theme.LoadAll(), luaMgr, config.SaveFunc{})
+	panes := ui.NewPaneSet()
+	m.SetPaneSet(panes)
+	if luaMgr != nil {
+		luaMgr.SetLayoutProvider(panes)
+	}
 	m.SetRadioFavorites(providers.radioFavorites)
 	if resumeServer != nil {
 		m.SetResumeSaver(serverResumeSaver(resumeServer))
@@ -223,7 +229,7 @@ func run(overrides config.Overrides, positional []string, headless, visualizer60
 		luaSend, stopLuaSend := newOrderedSender(prog.Send)
 		defer stopLuaSend()
 		luaMgr.SetControlProvider(luaControlProvider(luaSend))
-		luaMgr.SetUIProvider(luaUIProvider(luaSend))
+		luaMgr.SetUIProvider(luaUIProvider(luaSend, headless))
 	}
 
 	stopIPC, err := startIPC(prog.Send, pluginBroker, luaMgr, headless)

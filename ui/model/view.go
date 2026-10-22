@@ -261,6 +261,9 @@ func (m Model) View() tea.View {
 	rendered := m.centerFrame(m.layout.frameStyle().Render(content))
 	rendered = ui.FitRect(rendered, m.layout.frameWidth, max(1, m.height))
 
+	if box := m.renderLuaSelect(); box != "" {
+		rendered = overlayCentered(rendered, box, m.layout.frameWidth, m.height)
+	}
 	view := tea.NewView(rendered)
 	view.BackgroundColor = ui.ColorBackground
 	if ui.ColorBackground != nil {
@@ -643,7 +646,29 @@ func (m Model) renderSpectrum() string {
 	if m.visualizerDisabled() {
 		return ""
 	}
-	return m.vis.Render()
+	panes := m.regionPanes(ui.RegionVisualizer)
+	if len(panes) == 1 && panes[0].Pane == ui.PaneBuiltin {
+		// The shortcut only applies when the builtin is the whole region: at
+		// 100% the only pane can be a plugin, and it still has to render.
+		return m.vis.Render()
+	}
+	widths := ui.SplitWeights(m.layout.panelWidth, paneWeights(panes))
+	blocks := make([]string, len(panes))
+	for i, pane := range panes {
+		if pane.Vis != "" {
+			blocks[i] = m.renderPaneVis(pane.Vis, m.vis.Rows, widths[i])
+			continue
+		}
+		if pane.Pane == ui.PaneBuiltin {
+			cols := m.vis.Cols
+			m.vis.Cols = widths[i]
+			blocks[i] = m.vis.Render()
+			m.vis.Cols = cols
+			continue
+		}
+		blocks[i] = m.renderPluginPane(pane.Pane, m.vis.Rows, widths[i])
+	}
+	return joinPanesRow(blocks, widths, m.vis.Rows)
 }
 
 // renderFullVisualizer renders a full-screen view showing only the visualizer
