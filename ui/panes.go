@@ -203,20 +203,34 @@ func SplitWeights(total int, weights []int) []int {
 		sum = len(weights)
 	}
 	out := make([]int, len(weights))
+	// Guarantee one cell per pane first, then share the rest by weight. The
+	// other order can overflow the region when a heavy weight takes the whole
+	// row and the remainder is negative.
+	remaining := total - len(weights)
+	if remaining < 0 {
+		remaining = 0
+	}
 	used := 0
 	for i, w := range weights {
 		if w <= 0 {
 			w = 1
 		}
-		out[i] = max(1, total*w/sum)
-		used += out[i]
-	}
-	// Hand any rounding remainder to the first pane so the row fills exactly.
-	if used != total {
-		out[0] += total - used
-		if out[0] < 1 {
-			out[0] = 1
+		extra := 0
+		if sum > 0 {
+			extra = remaining * w / sum
 		}
+		out[i] = 1 + extra
+		used += extra
+	}
+	// Hand the rounding remainder to the heaviest pane, never past the total.
+	if left := remaining - used; left > 0 {
+		best := 0
+		for i, w := range weights {
+			if w > weights[best] {
+				best = i
+			}
+		}
+		out[best] += left
 	}
 	return out
 }

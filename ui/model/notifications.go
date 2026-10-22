@@ -86,7 +86,7 @@ func (m *Model) playbackState() (playlist.Track, playback.State) {
 			Genre:       track.Genre,
 			TrackNumber: track.TrackNumber,
 			URL:         track.Path,
-			ArtURL:      track.AlbumArtURL,
+			ArtURL:      m.artworkURL(track),
 			Duration:    duration,
 		},
 		VolumeDB:    m.player.Volume(),

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -78,18 +79,42 @@ func (m Model) renderLuaSelect() string {
 	width = min(max(width+6, 24), max(20, m.layout.frameWidth-4))
 
 	title := truncate(sel.title, width-2)
+	// The list can be longer than the screen (the visualizer picker lists every
+	// mode). Show a window around the cursor so the selected option is always
+	// visible, with markers when there is more above or below.
+	visible := len(sel.options)
+	if maxRows := max(3, m.height-9); visible > maxRows {
+		visible = maxRows
+	}
+	start := 0
+	if sel.cursor >= visible {
+		start = sel.cursor - visible + 1
+	}
+	if end := start + visible; end > len(sel.options) {
+		start = max(0, len(sel.options)-visible)
+	}
+	end := min(start+visible, len(sel.options))
+
 	var b strings.Builder
 	b.WriteString(title)
 	b.WriteString("\n\n")
-	for i, option := range sel.options {
-		line := "  " + truncate(option, width-4)
+	if start > 0 {
+		b.WriteString(dimStyle.Render("  ↑ ") + truncate(fmt.Sprintf("%d more", start), width-6))
+		b.WriteString("\n")
+	}
+	for i := start; i < end; i++ {
+		option := truncate(sel.options[i], width-4)
+		line := "  " + option
 		if i == sel.cursor {
-			line = "▸ " + truncate(option, width-4)
+			line = "▸ " + option
 		}
 		b.WriteString(line)
-		if i < len(sel.options)-1 {
+		if i < end-1 || end < len(sel.options) {
 			b.WriteString("\n")
 		}
+	}
+	if end < len(sel.options) {
+		b.WriteString(dimStyle.Render("  ↓ ") + truncate(fmt.Sprintf("%d more", len(sel.options)-end), width-6))
 	}
 	b.WriteString("\n\n")
 	b.WriteString(dimStyle.Render("  ↑/↓ move   enter select   esc cancel"))

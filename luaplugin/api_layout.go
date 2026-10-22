@@ -36,6 +36,18 @@ func registerLayoutAPI(L *lua.LState, cliamp *lua.LTable, p *Plugin, mgr *Manage
 	tbl := L.NewTable()
 	guard := func(name string) bool { return p.permitted(PermLayout, "cliamp.layout."+name) }
 
+	// A plugin owns only its own pane; set_weight may also touch the builtin
+	// content of the region.
+	owned := func(name string, allowBuiltin bool) (string, bool) {
+		if name == "" {
+			return p.Name, true
+		}
+		if name == p.Name || (allowBuiltin && name == "builtin") {
+			return name, true
+		}
+		return "", false
+	}
+
 	provider := func() LayoutProvider {
 		mgr.mu.RLock()
 		defer mgr.mu.RUnlock()
@@ -49,9 +61,9 @@ func registerLayoutAPI(L *lua.LState, cliamp *lua.LTable, p *Plugin, mgr *Manage
 		}
 		opts := L.CheckTable(1)
 		region := strings.TrimSpace(rawString(L, opts, "region"))
-		pane := strings.TrimSpace(rawString(L, opts, "pane"))
-		if pane == "" {
-			pane = p.Name
+		pane, ok := owned(strings.TrimSpace(rawString(L, opts, "pane")), false)
+		if !ok {
+			return pushErr(L, "layout: a plugin can only add its own pane")
 		}
 		weight := optIntField(L, opts, "weight")
 		position := strings.TrimSpace(rawString(L, opts, "position"))
@@ -73,9 +85,9 @@ func registerLayoutAPI(L *lua.LState, cliamp *lua.LTable, p *Plugin, mgr *Manage
 		}
 		opts := L.CheckTable(1)
 		region := strings.TrimSpace(rawString(L, opts, "region"))
-		pane := strings.TrimSpace(rawString(L, opts, "pane"))
-		if pane == "" {
-			pane = p.Name
+		pane, ok := owned(strings.TrimSpace(rawString(L, opts, "pane")), false)
+		if !ok {
+			return pushErr(L, "layout: a plugin can only remove its own pane")
 		}
 		lp := provider()
 		if lp == nil {
@@ -93,9 +105,9 @@ func registerLayoutAPI(L *lua.LState, cliamp *lua.LTable, p *Plugin, mgr *Manage
 		}
 		opts := L.CheckTable(1)
 		region := strings.TrimSpace(rawString(L, opts, "region"))
-		pane := strings.TrimSpace(rawString(L, opts, "pane"))
-		if pane == "" {
-			pane = p.Name
+		pane, ok := owned(strings.TrimSpace(rawString(L, opts, "pane")), false)
+		if !ok {
+			return pushErr(L, "layout: a plugin can only set the visualizer of its own pane")
 		}
 		vis := strings.TrimSpace(rawString(L, opts, "vis"))
 		if setter, ok := provider().(interface {
@@ -159,9 +171,9 @@ func registerLayoutAPI(L *lua.LState, cliamp *lua.LTable, p *Plugin, mgr *Manage
 		}
 		opts := L.CheckTable(1)
 		region := strings.TrimSpace(rawString(L, opts, "region"))
-		pane := strings.TrimSpace(rawString(L, opts, "pane"))
-		if pane == "" {
-			pane = p.Name
+		pane, ok := owned(strings.TrimSpace(rawString(L, opts, "pane")), true)
+		if !ok {
+			return pushErr(L, "layout: a plugin can only set the weight of its own pane")
 		}
 		lp := provider()
 		if lp == nil {

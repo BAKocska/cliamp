@@ -9,6 +9,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/bjarneo/cliamp/ui"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // paneRefreshInterval is how often a plugin pane re-renders. Plugin render runs
@@ -166,6 +167,9 @@ func joinPanesRow(blocks []string, widths []int, rows int) string {
 			if row < len(split[i]) {
 				text = split[i][row]
 			}
+			// A plugin can return a wider line; clip it so it cannot push the
+			// next pane out of place.
+			text = ansi.Truncate(text, widths[i], "")
 			b.WriteString(text)
 			if pad := widths[i] - lipglossWidth(text); pad > 0 {
 				b.WriteString(strings.Repeat(" ", pad))

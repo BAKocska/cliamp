@@ -131,12 +131,17 @@ func newOrderedSender(send func(tea.Msg)) (queue func(tea.Msg), stop func()) {
 }
 
 // luaUIProvider lets Lua plugins show a status message.
-func luaUIProvider(send func(tea.Msg)) luaplugin.UIProvider {
+func luaUIProvider(send func(tea.Msg), headless bool) luaplugin.UIProvider {
 	return luaplugin.UIProvider{
 		ShowMessage: func(text string, duration time.Duration) {
 			send(model.ShowStatusMsg{Text: text, Duration: duration})
 		},
 		ShowSelect: func(title string, options []string, cursor int, onDone func(index int), onCancel func()) {
+			if headless {
+				// There is no UI to answer the selector: let the API report it as
+				// unavailable instead of accepting a request nobody can answer.
+				return
+			}
 			send(model.LuaSelectMsg{Title: title, Options: options, Cursor: cursor, OnDone: onDone, OnCancel: onCancel})
 		},
 		SetVis: func(name string) {

@@ -44,6 +44,7 @@ var (
 	lastID = 1000
 
 	pulse   atomic.Bool
+	writeMu sync.Mutex
 	ttyOnce sync.Once
 	ttyFile *os.File
 	ttyErr  error
@@ -67,11 +68,20 @@ func Show(source string, cols, rows int, reuseID int) (Placement, error) {
 		return Placement{}, fmt.Errorf("kittyimg: empty source")
 	}
 
+	if reuseID < 0 || reuseID > 0xFFFFFF {
+		return Placement{}, fmt.Errorf("kittyimg: image id out of range: %d", reuseID)
+	}
 	mu.Lock()
 	id := reuseID
 	if id <= 0 {
 		lastID++
+		if lastID > 0xFFFFFF {
+			lastID = 1
+		}
 		id = lastID
+	} else if id > lastID {
+		// Keep the counter ahead of a reused id so a later image cannot take it.
+		lastID = id
 	}
 	placement := Placement{ID: id, Cols: cols, Rows: rows}
 	placed[id] = placement
@@ -177,13 +187,48 @@ func load(source string) ([]byte, error) {
 		if !strings.Contains(header, ";base64") {
 			return nil, fmt.Errorf("kittyimg: data URL is not base64")
 		}
-		return base64.StdEncoding.DecodeString(payload)
+		data, err := base64.StdEncoding.DecodeString(payload)
+		if err != nil {
+			return nil, err
+		}
+		if len(data) > maxImageBytes {
+			return nil, fmt.Errorf("kittyimg: image is larger than %d bytes", maxImageBytes)
+		}
+		return data, nil
 	case strings.HasPrefix(source, "file://"):
-		return os.ReadFile(strings.TrimPrefix(source, "file://"))
+		return readFile(strings.TrimPrefix(source, "file://"))
 	case source != "":
-		return os.ReadFile(source)
+		return readFile(source)
 	}
 	return nil, fmt.Errorf("kittyimg: empty source")
+}
+
+// maxImageBytes caps what a plugin can read as an image. A plugin with only the
+// image permission must not be able to allocate the process out of memory with a
+// device or a huge file.
+const maxImageBytes = 32 << 20
+
+// readFile reads a regular file up to maxImageBytes. Devices such as /dev/zero
+// are rejected: reading them never ends.
+func readFile(path string) ([]byte, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("kittyimg: %s is not a regular file", path)
+	}
+	if info.Size() > maxImageBytes {
+		return nil, fmt.Errorf("kittyimg: %s is larger than %d bytes", path, maxImageBytes)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxImageBytes {
+		return nil, fmt.Errorf("kittyimg: image is larger than %d bytes", maxImageBytes)
+	}
+	return data, nil
 }
 
 // scale box-filters img down to w x h.
@@ -227,6 +272,11 @@ func scale(src image.Image, w, h int) *image.NRGBA {
 // protocol expects for f=100 and avoids the raw-pixel layout that some kitty
 // versions composite incorrectly.
 func transmit(id int, img *image.NRGBA, cols, rows int) error {
+	// Chunked transfers must not interleave: a second image would break the
+	// continuation of the first one.
+	writeMu.Lock()
+	defer writeMu.Unlock()
+
 	var encoded bytes.Buffer
 	if err := png.Encode(&encoded, img); err != nil {
 		return err

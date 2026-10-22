@@ -16,6 +16,11 @@ func Blocks(source string, cols, rows int) (string, error) {
 	if cols <= 0 || rows <= 0 {
 		return "", fmt.Errorf("kittyimg: bad size %dx%d", cols, rows)
 	}
+	// The dimensions come from a plugin; cap them so a huge call cannot
+	// allocate an oversized image or build a giant string.
+	const maxSide = 512
+	cols = min(cols, maxSide)
+	rows = min(rows, maxSide)
 	raw, err := load(source)
 	if err != nil {
 		return "", err

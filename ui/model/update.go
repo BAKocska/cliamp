@@ -87,6 +87,15 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case LuaSelectMsg:
+		if prev := m.luaSelect; prev != nil {
+			// A second request replaces the first: cancel it so its plugin gets
+			// a result instead of losing both callbacks.
+			if prev.onCancel != nil {
+				prev.onCancel()
+			} else {
+				prev.onDone(-1)
+			}
+		}
 		cursor := msg.Cursor - 1
 		if cursor < 0 || cursor >= len(msg.Options) {
 			cursor = 0
