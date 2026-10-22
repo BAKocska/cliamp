@@ -7,7 +7,10 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
-// registerImageAPI adds cliamp.image.{show,block,clear} to the cliamp table.
+// registerImageAPI adds cliamp.image.{show,block,clear,blocks} to the cliamp
+// table. The image permission reads any regular file the user can read, up to
+// 32 MiB: a cover can live anywhere, so paths are not restricted to an image
+// directory. Devices and pipes are rejected.
 // The image travels to the terminal out of band; block returns the Unicode
 // placeholders that display it, so a plugin composes it inside its own frame.
 // Gated on permissions = {"image"}.
